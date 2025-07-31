@@ -5,7 +5,7 @@ class CV:
     def __init__(self, num, cfg_path="yolo_model/yolov3-tiny.cfg", weights_path="yolo_model/yolov3-tiny.weights"):
         self.cfg_path = cfg_path
         self.weights_path = weights_path
-        self.net = cv2.dnn.readNet(weights_path, cfg_path, framework='Darknet')
+        self.net = cv2.dnn.readNetFromDarknet(cfg_path, weights_path)
         with open("yolo_model/coco.names", "r") as f:
             self.classes = [line.strip() for line in f.readlines()]
         self.layer_names = self.net.getLayerNames()
