@@ -23,7 +23,8 @@ import platform
 import subprocess
 import avoid
 import re
-
+from wifi_bind import WifiBind
+from interface import DroneInterface
 
 lock = threading.Lock()
 # Define the IP addresses of the two Wi-Fi adapters
@@ -38,127 +39,20 @@ TELLO_IP = "192.168.10.1"
 WIFI_1 = "Wi-Fi"
 WIFI_2 = "Wi-Fi 2"
 
-def run_command(command):
-    """Runs a system command and returns output."""
-    try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        print(f"Error running command: {e}")
-        return None
-
-def get_connected_ssid(adapter):
-    """Returns the SSID of the currently connected network for the given adapter."""
-    system = platform.system()
-    
-    if system == "Windows":
-        result = run_command('netsh wlan show interfaces')
-        match = re.search(r"(?:IP Address|IPv4 Address)[\s.]+:\s+([\d.]+)", result)
-        return match.group(1) if match else None
-    elif system in ["Linux", "Darwin"]:
-        result = run_command(f'nmcli -t -f active,ssid dev wifi | grep "^yes"')
-        return result.strip().split(":")[-1] if result else None
-    return None
-
-
-def connect_wifi(adapter, ssid):
-    """Connects Wi-Fi adapter to a specific Tello network only if not already connected."""
-    current_ssid = get_connected_ssid(adapter)
-    
-    if current_ssid == ssid:
-        print(f"{adapter} is already connected to {ssid}. Skipping connection.")
-        return
-    
-    print(f"Connecting {adapter} to {ssid}...")
-    system = platform.system()
-    
-    if system == "Windows":
-        run_command(f'netsh wlan connect name="{ssid}" interface="{adapter}"')
-    else:  # Linux/macOS
-        run_command(f'nmcli device wifi connect "{ssid}" ifname {adapter}')
-    
-    time.sleep(0.1)
-
-
-
-def get_current_ip(adapter):
-    """Returns the current IP address of the Wi-Fi adapter."""
-    system = platform.system()
-    
-    if system == "Windows":
-        result = run_command(f'netsh interface ip show address name="{adapter}"')
-        match = re.search(r"IP Address:\s+([\d.]+)", result)
-        return match.group(1) if match else None
-    elif system in ["Linux", "Darwin"]:
-        result = run_command(f'ip addr show {adapter}')
-        match = re.search(r'inet (\d+\.\d+\.\d+\.\d+)/', result)
-        return match.group(1) if match else None
-    return None
-
-def set_static_ip(adapter, ip):
-    """Assigns a static IP to the Wi-Fi adapter only if it is not already set."""
-    current_ip = get_current_ip(adapter)
-    
-    if current_ip == ip:
-        print(f"Static IP for {adapter} is already {ip}. Skipping.")
-        return
-    
-    print(f"Setting static IP {ip} for {adapter}...")
-    system = platform.system()
-    
-    if system == "Windows":
-        run_command(f'netsh interface ip set address name="{adapter}" static {ip} 255.255.255.0')
-    else:  # Linux/macOS
-        run_command(f'sudo ifconfig {adapter} {ip} netmask 255.255.255.0 up')
-
-
-def check_route(ip):
-    """Checks if a route already exists for the given IP."""
-    system = platform.system()
-    
-    if system == "Windows":
-        result = run_command("route print")
-    elif system in ["Linux", "Darwin"]:
-        result = run_command("ip route show")
-    else:
-        return False
-    
-    return ip in result if result else False
-
-def add_route():
-    """Adds routing rules only if they do not already exist for each adapter."""
-    system = platform.system()
-
-    route_1_exists = check_route(WIFI_ADAPTER_1_IP)
-    route_2_exists = check_route(WIFI_ADAPTER_2_IP)
-
-    if route_1_exists and route_2_exists:
-        print(f"Routes for {TELLO_IP} already exist. Skipping.")
-        return
-
-    print(f"Adding missing route(s) for {TELLO_IP}...")
-
-    if system == "Windows":
-        if not route_1_exists:
-            run_command(f'route -p add {TELLO_IP} mask 255.255.255.255 {WIFI_ADAPTER_1_IP} metric 1')
-        if not route_2_exists:
-            run_command(f'route -p add {TELLO_IP} mask 255.255.255.255 {WIFI_ADAPTER_2_IP} metric 1')
-    elif system in ["Linux", "Darwin"]:
-        if not route_1_exists:
-            run_command(f'sudo ip route add {TELLO_IP} via {WIFI_ADAPTER_1_IP} dev wlan0')
-        if not route_2_exists:
-            run_command(f'sudo ip route add {TELLO_IP} via {WIFI_ADAPTER_2_IP} dev wlan1')
+drone_1_wifi = WifiBind(WIFI_1, TELLO_IP, WIFI_ADAPTER_1_IP)
+drone_2_wifi = WifiBind(WIFI_2, TELLO_IP, WIFI_ADAPTER_2_IP)
 
 # Connect to Tello networks
-connect_wifi(WIFI_1, "TELLO-D06F9F")
-connect_wifi(WIFI_2, "TELLO-EE4263 2")
+drone_1_wifi.connect_wifi("TELLO-D06F9F")
+drone_2_wifi.connect_wifi("TELLO-EE4263 2")
 
 # Assign static IPs
-set_static_ip(WIFI_1, WIFI_ADAPTER_1_IP)
-set_static_ip(WIFI_2, WIFI_ADAPTER_2_IP)
+drone_1_wifi.set_static_ip(WIFI_ADAPTER_1_IP)
+drone_2_wifi.set_static_ip(WIFI_ADAPTER_2_IP)
 
 # Add route if necessary
-add_route()
+drone_1_wifi.add_route(0)
+drone_2_wifi.add_route(1)
 
 #proxy_server = VideoProxyServer(drone_ips, server_ip, base_port)
 #proxy_server.start_proxy()
@@ -193,44 +87,6 @@ def is_safe_to_fly():
     # Additional checks can be added, such as GPS status, temperature, etc.
 
     return True
-
-
-def move_tello(distance1, distance2, angle1, angle2):# Define the Tello IP and port
-    # Take off both drones
-    #drone1.takeoff()
-    time.sleep(5)
-
-    #rotates the first drone
-    if angle1 < 0:
-        print("Rotating")
-        drone1.rotateCCW(abs(angle))
-    elif angle1 > 0:
-        print("Rotating")
-        drone1.rotateCW(abs(angle))
-    else:
-        print("No rotation needed")
-
-    #rotates the second drone
-    if angle2 < 0:
-        print("Rotating")
-        drone2.rotateCCW(abs(angle2))
-    elif angle2 > 0:
-        print("Rotating")
-        drone2.rotateCCW(abs(angle2))
-    else:
-        print("No rotation needed")
-    time.sleep(10)
-
-    # Move drones forward
-    drone1.moveForward(distance1)
-    drone2.moveForward(distance2)
-  
-
-    time.sleep(10)
-
-    # Land both drones
-    drone1.land()
-    drone2.land()
 
 battery1 = drone1.getBattery()
 battery2 = drone2.getBattery()
@@ -442,97 +298,15 @@ sleep_time = 0
 timer = 0
 iter = 0
 
-def drawPoints(screen, points, droneimg, yaw):
-    font = pygame.font.SysFont('Times',25)
-    
-    for point in points:
-        pygame.draw.circle(screen, (255, 0, 0), point, 3) #draws a red dot/line for the visited nodes/area
-    # Rotate the image based on the yaw angle and draw it on the screen
-    rotated_image = pygame.transform.rotate(droneimg, -yaw)
-    image_rect = rotated_image.get_rect(center=(points[-1][0], points[-1][1]))
-    screen.blit(rotated_image, image_rect.topleft)
+background = Background('pathPlanned2.png', [0, 0], 1)
+updateTime = 0.004
+interface1 = DroneInterface(path, personpospx, distanceInCm, angle, screen, drone1Img, map1)
+interface2 = DroneInterface(path2, personpospx, distanceInCm2, angle2, screen, drone2Img, map2)
 
-    pygame.draw.circle(screen, (0, 255, 0), points[-1], 3) #green dot on the image for tracking
-    
-    #adds positional text data, (0,0) is bottom left corner
-    x_cord = (int)((points[-1][0]))
-    y_cord  = (int)((screen_height  - points[-1][1]))
-    position_text = font.render(f'({x_cord}, {y_cord})cm', True, (255, 0, 0))
-    screen.blit(position_text, (points[-1][0] + 10, points[-1][1] + 10))
+interface1.localize()
+interface2.localize()
 
-def localize():
-    background = Background('pathPlanned2.png', [0, 0], 1)
-    x,y = 0, 0 # origin
-
-    drone1points = [(x, y)]
-    drone2points = [(x, y)]
-
-    updateTime = 0.004 #amount of times we want to step (CHANGE THIS VALUE DEPENDING ON ACCCURACY, Controls odometry accuracy)
-    angleUpdateTime = 0.005
-    step1 = 0
-    yaw1 = 0
-    step2 = 0
-    yaw2 = 0
-
-    start_pos1 = path[0]
-    start_pos2 = path2[0]
-    end_pos1 = path[1]
-    end_pos2 = path2[1]
-
-    # Initialize the current position
-    drone1current_pos = list(start_pos1)
-    drone1previous_pos = drone1current_pos.copy()
-
-    linearSpeed = 200
-    angularSpeed = 50
-
-    timeDur = distanceInCm/linearSpeed
-    rotationDur = angle/angularSpeed
-
-    timeDur2 = distanceInCm2/linearSpeed
-    rotationDur2 = angle2/angularSpeed
-
-    drone1num_steps = int(timeDur / updateTime)
-    drone1angle_num_steps = 100
-
-    drone2current_pos = list(start_pos2)
-    drone2previous_pos= drone2current_pos.copy()
-    drone2num_steps = int(timeDur2 / updateTime)
-    drone2angle_num_steps = 100
-
-
-    # Calculate the increments in x and y directions
-    dx1 = (end_pos1[0] - start_pos1[0]) / drone1num_steps
-    dy1 = (end_pos1[1] - start_pos1[1]) / drone1num_steps
-
-    dx2 = (end_pos2[0] - start_pos2[0]) / drone2num_steps
-    dy2 = (end_pos2[1] - start_pos2[1]) / drone2num_steps
-
-    initial_yaw = 0  # Initial yaw angle in 
-    target_yaw1 = map1.get_angle(path[0], personpospx, (path[0][0], path[0][1]+10))
-    target_yaw2 = map2.get_angle(path2[0], personpospx, (path2[0][0], path2[0][1]+10))
-    print(target_yaw1)
-    print(target_yaw2)
-
-    drone1points.append(drone1current_pos)
-    drone2points.append(drone2current_pos)
-
-    #start_time = pygame.time.get_ticks()  # Get the start time
-    #rotation_done = False
-    drawPoints(screen, drone1points, drone1Img, yaw1)
-    drawPoints(screen, drone2points, drone2Img, yaw2)
-
-    #MOVES THE DRONES
-    #drone_thread = threading.Thread(target=move_tello, args={distanceInCm, distanceInCm2, angle, angle2})
-    #drone_thread.start()
-
-    #updates the screen
-   
-    #delays for the takeoff time
-    time.sleep(5)
-    running = True
-    rotating1 = True
-    rotating2 = True
+def updateInterface():
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -540,55 +314,9 @@ def localize():
         updateScreen()
         screen.blit(background.image, (0, 0))    
 
-        if rotating1:
-            if yaw1 != target_yaw1:
-                if yaw1 < 0:
-                    yaw1 += 360
-                    # Ensure clockwise rotation
-                if yaw1 > 180:
-                    yaw1 -= 360
-                yaw1 += abs(((target_yaw1) - initial_yaw) / drone1angle_num_steps)
-                if abs(yaw1 - target_yaw1) < 1:
-                    yaw1 = target_yaw1  # Snap to target yaw if close
-                    rotating1 = False
-        else:
-            yaw1 = map1.get_angle(drone1current_pos, personpospx, (drone1current_pos[0], drone1current_pos[1]+10))
-            if step1 <= drone1num_steps:
-                previous_pos1 = drone1current_pos.copy()
-                drone1current_pos[0] += dx1
-                drone1current_pos[1] += dy1
-                drone1points.append(tuple(drone1current_pos))
-                # Increment yaw angle
-                drone1points.append((int(drone1current_pos[0]), int(drone1current_pos[1])))
-                step1 += 1
+        interface1.update()
+        interface2.update()
 
-        if rotating2:
-            if yaw2 != target_yaw2:
-                if yaw2 < 0:
-                    yaw2 += 360
-                    # Ensure clockwise rotation
-                if yaw2 > 180:
-                    yaw2 -= 360
-                yaw2 += abs((target_yaw2) - initial_yaw) / drone2angle_num_steps
-                if abs(yaw2 - target_yaw2) < 1:
-                    yaw2 = target_yaw2  # Snap to target yaw if close
-                    rotating2 = False
-        else:
-
-            yaw2 = map1.get_angle(drone2current_pos, personpospx, (drone2current_pos[0], drone2current_pos[1]+10))
-
-            if step2 <= drone2num_steps:
-                previous_pos2 = drone2current_pos.copy()
-                drone2current_pos[0] += dx2
-                drone2current_pos[1] += dy2
-                drone2points.append(tuple(drone2current_pos))
-                # Increment yaw angle
-                drone2points.append((int(drone2current_pos[0]), int(drone2current_pos[1])))
-                step2 += 1
-        # Draw the frame
-        drawPoints(screen, drone1points, drone1Img, yaw1)
-
-        drawPoints(screen, drone2points, drone2Img, yaw2)
         pygame.display.update()
         
         pygame.time.delay(int(updateTime*1000))
@@ -597,17 +325,13 @@ def localize():
     pygame.quit()
     sys.exit()
 
-    # Ensure the final position is exactly the end position
-    drone1current_pos = end_pos1
-    drone1points.append(tuple(drone1current_pos))
-
-    drone2current_pos = end_pos2
-    drone2points.append(tuple(drone2current_pos))
+    interface1.ensure_end()
+    interface2.ensure_end()
 
     pygame.display.flip()
 
-# localizeThread = threading.Thread(target=localize)
-# localizeThread.start()
+localizeThread = threading.Thread(target=updateInterface)
+localizeThread.start()
 # screenThread = threading.Thread(target=updateScreen)
 # screenThread.start()
 # if(not is_safe_to_fly()):
