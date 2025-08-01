@@ -226,7 +226,7 @@ class initializeMap:
         instructtext = instructionfont.render(self.instruction, True , (0, 0, 10)) 
         self.screen.blit(instructtext, ((screen_width/2)-(instructtext.get_width()/2), 25)) #Gives instructions based on what is going on
 
-        tello1logo = pygame.image.load("tello1logo.png")  
+        tello1logo = pygame.image.load("images/tello1logo.png")  
         tello1logo = self.scaleImgDown(tello1logo, 0.09)
         self.screen.blit(tello1logo, (0, 0))  
 
@@ -272,7 +272,7 @@ class initializeMap:
                 self.screen.blit(batteryfull, (80, 0))  
 
         #SECOND DRONE
-        tello2logo = pygame.image.load("tello2logo.png")  # Replace with the path to your image file
+        tello2logo = pygame.image.load("images/tello2logo.png")  # Replace with the path to your image file
         tello2logo = self.scaleImgDown(tello2logo, 0.09)
         self.screen.blit(tello2logo, (screen_width-tello1logo.get_width(), 0)) 
 

@@ -146,7 +146,7 @@ startMap = map.initializeMap(screen, "Make Drone 1 Path")
 startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
 
 #DRONE 1 MAPPING
-map1 = map.mapStart(sizeCoeff, screen, Background('mymap.png', [0, 105], 0.7))
+map1 = map.mapStart(sizeCoeff, screen, Background('images/mymap.png', [0, 105], 0.7))
 angle, distanceInCm, distanceInPx, path = map1.createMap()
 pygame.draw.line(screen, (0, 0, 0), path[1], path[2], 6) #creates a line as the edges                
 pygame.draw.circle(screen, (0, 0, 255), path[1], 5) #To note where the nodes are
@@ -156,13 +156,13 @@ pygame.draw.circle(screen, (0, 0, 255), path[2], 5) #To note where the nodes are
 saveImg = pygame.Rect(0, 105, screen_width, screen_height-105)
 # Create a new Surface to store the part of the screen
 path1img = screen.subsurface(saveImg).copy()
-pygame.image.save(path1img, "pathPlanned.png") #Saves new background with path
+pygame.image.save(path1img, "images/pathPlanned.png") #Saves new background with path
 
 startMap.changeInstruction("Make Drone 2 Path")
 startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
 
 #DRONE 2 Mapping
-map2 = map.mapStart(sizeCoeff, screen, Background('pathPlanned.png', [0, 105], 1))
+map2 = map.mapStart(sizeCoeff, screen, Background('images/pathPlanned.png', [0, 105], 1))
 angle2, distanceInCm2, distanceInPx2, path2 = map2.createMap()
 startMap.changeInstruction("Add the Subject")
 pygame.draw.line(screen, (0, 0, 0), path2[1], path2[2], 6) #creates a line as the edges                
@@ -258,14 +258,14 @@ def move_parabolic(self, drone, speed, time, distance):
 saveImg = pygame.Rect(0, 100, screen_width, screen_height-105)
 # Create a new Surface to store the part of the screen
 path1img = screen.subsurface(saveImg).copy()
-pygame.image.save(screen, "pathPlanned2.png") #Saves new background with path
+pygame.image.save(screen, "images/pathPlanned2.png") #Saves new background with path
 
 
 #Makes the drone image on a path
-drone1Img = pygame.image.load('tello3.png')  # Replace with your image file path
+drone1Img = pygame.image.load('images/tello3.png')  # Replace with your image file path
 drone1Img = scaleImgDown(drone1Img, 0.085) #Scale down to 8.5%
 
-drone2Img = pygame.image.load('tello2.png')  # Replace with your image file path
+drone2Img = pygame.image.load('images/tello2.png')  # Replace with your image file path
 drone2Img = scaleImgDown(drone2Img, 0.03) # Scale down to 3%
 
 #position values for path planning
@@ -298,7 +298,7 @@ sleep_time = 0
 timer = 0
 iter = 0
 
-background = Background('pathPlanned2.png', [0, 0], 1)
+background = Background('images/pathPlanned2.png', [0, 0], 1)
 updateTime = 0.004
 interface1 = DroneInterface(path, personpospx, distanceInCm, angle, screen, drone1Img, map1)
 interface2 = DroneInterface(path2, personpospx, distanceInCm2, angle2, screen, drone2Img, map2)
@@ -307,6 +307,7 @@ interface1.localize()
 interface2.localize()
 
 def updateInterface():
+    running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

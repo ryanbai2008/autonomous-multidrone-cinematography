@@ -8,7 +8,7 @@ import numpy as np
 import threading
 import sys
 from mapBackground import Background
-from map import MapStart
+from map import mapStart
 from localizeIRT import localizer
 import socket
 import os
@@ -33,18 +33,19 @@ class DroneInterface:
         self.screen = screen
         self.droneimg = droneimg
         self.map = map
-        self.yaw 
-        self.target_yaw 
-        self.initial_yaw 
-        self.dronecurrent_pos
-        self.dronenum_steps
-        self.dx
-        self.dy 
-        self.dronepoints
-        self.droneangle_num_steps
-        self.start_pos
-        self.end_pos
+        self.yaw = 0
+        self.target_yaw = None
+        self.initial_yaw = None
+        self.dronecurrent_pos = None
+        self.dronenum_steps = None
+        self.dx = None
+        self.dy = None
+        self.dronepoints = []
+        self.droneangle_num_steps = 100
+        self.start_pos = None
+        self.end_pos = None
         self.rotating = True
+        self.step = 0
 
     def drawPoints(self, screen, points, droneimg, yaw):
         screen_width, screen_height = pygame.display.get_surface().get_size()
@@ -65,7 +66,7 @@ class DroneInterface:
         position_text = font.render(f'({x_cord}, {y_cord})cm', True, (255, 0, 0))
         screen.blit(position_text, (points[-1][0] + 10, points[-1][1] + 10))
 
-    def localize(self, updateTime: 0.004, angleUpdateTime: 0.005, step: 0):
+    def localize(self, updateTime = 0.004, angleUpdateTime = 0.005):
         x,y = 0, 0 # origin
 
         self.dronepoints = [(x, y)]
@@ -75,7 +76,6 @@ class DroneInterface:
 
         # Initialize the current position
         self.dronecurrent_pos = list(self.start_pos)
-        droneprevious_pos = self.dronecurrent_pos.copy()
 
         linearSpeed = 200
         angularSpeed = 50
@@ -101,8 +101,7 @@ class DroneInterface:
         self.drawPoints(self.screen, self.dronepoints, self.droneimg, self.yaw)
 
 
-    def update(self, screen, backgroundimg):
-        
+    def update(self):
         if self.rotating:
             if self.yaw != self.target_yaw:
                 if self.yaw < 0:
@@ -116,15 +115,14 @@ class DroneInterface:
                     self.rotating = False
         else:
             self.yaw = self.map.get_angle(self.dronecurrent_pos, self.personpospx, (self.dronecurrent_pos[0], self.dronecurrent_pos[1]+10))
-            if step1 <= self.dronenum_steps:
-                previous_pos1 = self.dronecurrent_pos.copy()
+            if self.step <= self.dronenum_steps:
                 self.dronecurrent_pos[0] += self.dx
                 self.dronecurrent_pos[1] += self.dy
                 self.dronepoints.append(tuple(self.dronecurrent_pos))
                 # Increment yaw angle
                 self.dronepoints.append((int(self.dronecurrent_pos[0]), int(self.dronecurrent_pos[1])))
-                step1 += 1
-        self.drawPoints(screen, self.dronepoints, self.droneimg, self.yaw)
+                self.step += 1
+        self.drawPoints(self.screen, self.dronepoints, self.droneimg, self.yaw)
 
     def ensure_end(self):        
         self.dronecurrent_pos = self.end_pos
