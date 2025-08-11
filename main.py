@@ -12,9 +12,7 @@ import map
 from localizeIRT import localizer
 import socket
 import os
-#from customtello import VideoProxyServer
 from customtello import myTello
-
 import path_planner
 import tello_tracking_2
 import collision
@@ -25,37 +23,48 @@ import avoid
 import re
 from wifi_bind import WifiBind
 from interface import DroneInterface
+import PyGame_Interface
+
+###############################################
+###############################################
+#---------------Connect to drones-------------#
+###############################################
+###############################################
 
 lock = threading.Lock()
-# Define the IP addresses of the two Wi-Fi adapters
-WIFI_ADAPTER_1_IP = "192.168.10.2"  # IP address of Wi-Fi Adapter 1 (connected to Drone 1)
-WIFI_ADAPTER_2_IP = "192.168.10.3"  # IP address of Wi-Fi Adapter 2 (connected to Drone 2)
+# define the IP addresses of the two Wi-Fi adapters
+WIFI_ADAPTER_1_IP = input("IP Adress of Adapter 1. type N/A for default")
+WIFI_ADAPTER_2_IP = input("IP Adress of Adapter 2. type N/A for default")
+
+if WIFI_ADAPTER_2_IP == "N/A":
+    WIFI_ADAPTER_2_IP = "192.168.10.3"  # IP address of Wi-Fi Adapter 2 (connected to Drone 2)
+if WIFI_ADAPTER_1_IP == "N/A":
+    WIFI_ADAPTER_1_IP = "192.168.10.2"  # IP address of Wi-Fi Adapter 1 (connected to Drone 1)    
+
 
 drone_ips = [WIFI_ADAPTER_1_IP, WIFI_ADAPTER_2_IP]
 base_port = 30000
 TELLO_IP = "192.168.10.1"
 
-# Adapter names
+# adapter names
 WIFI_1 = "Wi-Fi"
 WIFI_2 = "Wi-Fi 2"
 
 drone_1_wifi = WifiBind(WIFI_1, TELLO_IP, WIFI_ADAPTER_1_IP)
 drone_2_wifi = WifiBind(WIFI_2, TELLO_IP, WIFI_ADAPTER_2_IP)
 
-# Connect to Tello networks
+# connect to Tello networks
 drone_1_wifi.connect_wifi("TELLO-D06F9F")
 drone_2_wifi.connect_wifi("TELLO-EE4263 2")
 
-# Assign static IPs
+# assign static IPs
 drone_1_wifi.set_static_ip(WIFI_ADAPTER_1_IP)
 drone_2_wifi.set_static_ip(WIFI_ADAPTER_2_IP)
 
-# Add route if necessary
+# add route if necessary
 drone_1_wifi.add_route(0)
 drone_2_wifi.add_route(1)
 
-#proxy_server = VideoProxyServer(drone_ips, server_ip, base_port)
-#proxy_server.start_proxy()
 
 drone1 = myTello(WIFI_ADAPTER_1_IP, base_port)
 drone2 = myTello(WIFI_ADAPTER_2_IP, base_port + 1)
@@ -72,21 +81,24 @@ keep_alive_thread1 = start_keep_alive(drone1)
 keep_alive_thread2 = start_keep_alive(drone2)
 
 def is_safe_to_fly():
-    # Check battery levels (both drones should have more than 20% battery)
+    # check battery levels (both drones should have more than 20% battery)
     battery1 = drone1.getBattery()
     battery2 = drone2.getBattery()
     if battery1 < 10 or battery2 < 10:
         logging.warning(f"Low battery: Drone 1 ({battery1}%) or Drone 2 ({battery2}%)")
         return False
 
-    # Check if drones are connected
+    # check if drones are connected
     if not drone1.getConnected() or not drone2.getConnected():
         logging.error("One or both drones are not connected")
         return False
-
-    # Additional checks can be added, such as GPS status, temperature, etc.
-
     return True
+
+###############################################
+###############################################
+#-------------------Display-------------------#
+###############################################
+###############################################
 
 battery1 = drone1.getBattery()
 battery2 = drone2.getBattery()
@@ -98,23 +110,7 @@ print(battery1)
 print(battery2)
 
 def updateScreen():
-    with lock:
-        startingyaw1 = 0
-        startingyaw2 = 0
-         
-        speedx1 = drone1.get_speed()
-        speedx2 = drone2.get_speed()
-        speedz1  = drone1.get_AngularSpeed(startingyaw1)
-        speedz2 = drone2.get_AngularSpeed(startingyaw2)
-
-        battery1 = drone1.getBattery()
-        battery2 = drone2.getBattery()
-
-        height1 = drone1.getHeight()
-        height2 = drone2.getHeight()
-
-        startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
-        sleep(0.5) #updates every 10 seconds, just gets data doesnt need to be too often or too much cpu
+    PyGame_Interface.updateScreen()
 
 #creates a map of the environment on pygame
 pygame.init()
@@ -136,11 +132,7 @@ isRunning = True
 sizeCoeff = 531.3/57 # actual distance/pixel distance in cm (CHANGE THIS VALUE IF YOUR CHANGING THE MAP)
 
 def scaleImgDown(img, scale_factor):
-    original_width, original_height = img.get_size()
-    new_width = int(original_width * scale_factor)
-    new_height = int(original_height * scale_factor)
-    img = pygame.transform.smoothscale(img, (new_width, new_height))# Scale the image
-    return img
+    return PyGame_Interface.scaleImgDown(img, scale_factor)
 
 startMap = map.initializeMap(screen, "Make Drone 1 Path")
 startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
@@ -149,14 +141,14 @@ startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, sp
 map1 = map.mapStart(sizeCoeff, screen, Background('images/mymap.png', [0, 105], 0.7))
 angle, distanceInCm, distanceInPx, path = map1.createMap()
 pygame.draw.line(screen, (0, 0, 0), path[1], path[2], 6) #creates a line as the edges                
-pygame.draw.circle(screen, (0, 0, 255), path[1], 5) #To note where the nodes are
-pygame.draw.circle(screen, (0, 0, 255), path[2], 5) #To note where the nodes are
+pygame.draw.circle(screen, (0, 0, 255), path[1], 5) #to note where the nodes are
+pygame.draw.circle(screen, (0, 0, 255), path[2], 5)
 
-# Define the area you want to save (x, y, width, height)
+#define the area you want to save (x, y, width, height)
 saveImg = pygame.Rect(0, 105, screen_width, screen_height-105)
-# Create a new Surface to store the part of the screen
+#create a new Surface to store the part of the screen
 path1img = screen.subsurface(saveImg).copy()
-pygame.image.save(path1img, "images/pathPlanned.png") #Saves new background with path
+pygame.image.save(path1img, "images/pathPlanned.png") #saves new background with path
 
 startMap.changeInstruction("Make Drone 2 Path")
 startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
@@ -166,8 +158,8 @@ map2 = map.mapStart(sizeCoeff, screen, Background('images/pathPlanned.png', [0, 
 angle2, distanceInCm2, distanceInPx2, path2 = map2.createMap()
 startMap.changeInstruction("Add the Subject")
 pygame.draw.line(screen, (0, 0, 0), path2[1], path2[2], 6) #creates a line as the edges                
-pygame.draw.circle(screen, (0, 0, 255), path2[1], 5) #To note where the nodes are
-pygame.draw.circle(screen, (0, 0, 255), path2[2], 5) #To note where the nodes are
+pygame.draw.circle(screen, (0, 0, 255), path2[1], 5) #to note where the nodes are
+pygame.draw.circle(screen, (0, 0, 255), path2[2], 5)
 
 startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
 pygame.display.update()
@@ -207,32 +199,8 @@ y3 = point3[1]
 y4 = point4[1]
 
 def line_intersection(x1, y1, x2, y2, x3, y3, x4, y4):
-    # Calculate the coefficients of the lines
-    A1 = y2 - y1
-    B1 = x1 - x2
-    C1 = A1 * x1 + B1 * y1
+    return PyGame_Interface.line_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
 
-    A2 = y4 - y3
-    B2 = x3 - x4
-    C2 = A2 * x3 + B2 * y3
-
-    # Calculate the determinant of the system
-    determinant = A1 * B2 - A2 * B1
-
-    if determinant == 0:
-        # Lines are parallel
-        return None
-
-    # Calculate the intersection point
-    x = (B2 * C1 - B1 * C2) / determinant
-    y = (A1 * C2 - A2 * C1) / determinant
-
-    # Check if the intersection point is within the segment bounds
-    if min(x1, x2) <= x <= max(x1, x2) and min(y1, y2) <= y <= max(y1, y2) and min(x3, x4) <= x <= max(x3, x4) and min(y3, y4) <= y <= max(y3, y4):
-        return (x, y)
-    else:
-        return None
-    
 intersection = line_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
 
 if intersection:
@@ -249,24 +217,25 @@ if intersection:
 print(intersection)
 print(personpos)
 
-
-def move_parabolic(self, drone, speed, time, distance):
-    drone2.send_rc(0, 0, 0, int(speed))
-    drone.send_rc(0, 0, 0, int(speed))
-
-#Saves the screen to be blitted
+#saves the screen to be blitted
 saveImg = pygame.Rect(0, 100, screen_width, screen_height-105)
-# Create a new Surface to store the part of the screen
+#create a new surface to store the part of the screen
 path1img = screen.subsurface(saveImg).copy()
-pygame.image.save(screen, "images/pathPlanned2.png") #Saves new background with path
+pygame.image.save(screen, "images/pathPlanned2.png") #saves new background with path
 
 
-#Makes the drone image on a path
-drone1Img = pygame.image.load('images/tello3.png')  # Replace with your image file path
-drone1Img = scaleImgDown(drone1Img, 0.085) #Scale down to 8.5%
+#makes the drone image on a path
+drone1Img = pygame.image.load('images/tello3.png')
+drone1Img = scaleImgDown(drone1Img, 0.085) #scale down
 
-drone2Img = pygame.image.load('images/tello2.png')  # Replace with your image file path
-drone2Img = scaleImgDown(drone2Img, 0.03) # Scale down to 3%
+drone2Img = pygame.image.load('images/tello2.png')
+drone2Img = scaleImgDown(drone2Img, 0.03) #scale down to 3%
+
+############################################
+############################################
+#---------------Drone Movement-------------#
+############################################
+############################################
 
 #position values for path planning
 start_pos1X, start_pos1Y = path[0]
@@ -276,17 +245,9 @@ end_pos2X, end_pos2Y = path2[1]
 
 #drones current position values
 drone_1_pos = [start_pos1X, start_pos1Y, 0] #initial angle of 0
-drone_2_pos = [start_pos2X, start_pos2Y, 0] #initial angle of 0
+drone_2_pos = [start_pos2X, start_pos2Y, 0]
 drone_1_movement = [0, 0]
 drone_2_movement = [0, 0]
-
-
-#path planning objects and CV objects
-#drone_1_path_plan = path_planner.PathPlan(start_pos1X, end_pos1X, start_pos1Y, end_pos1Y, drone_1_pos[2]) #########place both drones facing to the right facing horizontally
-#drone_2_path_plan = path_planner.PathPlan(start_pos2X, end_pos2X, start_pos2Y, end_pos2Y, drone_2_pos[2])
-#drone1_CV = tello_tracking.CV()
-#drone2_CV = tello_tracking.CV()
-
 
 #has goal been reached for drones
 drone_1_terminate = False
@@ -333,11 +294,11 @@ def updateInterface():
 
 localizeThread = threading.Thread(target=updateInterface)
 localizeThread.start()
-# screenThread = threading.Thread(target=updateScreen)
-# screenThread.start()
-# if(not is_safe_to_fly()):
-#     logging.error("Safety check failed. Drones will not take off.")
-#     sys.exit(1)
+screenThread = threading.Thread(target=updateScreen)
+screenThread.start()
+if(not is_safe_to_fly()):
+    logging.error("Safety check failed. Drones will not take off.")
+    sys.exit(1)
 normal_height = 200
 
 
@@ -377,7 +338,6 @@ try:
     drone_2_terminate = False
 
     #turn on drone
-
     drone1.send_rc(0, 0, 40, 0)
     drone2.send_rc(0, 0, 40, 0)
     time.sleep(1.5)
@@ -396,9 +356,9 @@ try:
     #total time elapsed
     total_time = 0
 
-    ##############################
-    ##Drone initial orientation###
-    ##############################
+    ###############################
+    #---Make drone face subject---#
+    ###############################
     facing_human_1 = False
     facing_human_2 = False
     while (not facing_human_1) or (not facing_human_2):
@@ -442,7 +402,9 @@ try:
     #get the start time
     start_time = time.time()
 
-    #movement starts
+    ################################
+    #----Start drones' movement----#
+    ################################
     while total_time < 60:
         #update total time
         total_time = time.time() - start_time
@@ -566,8 +528,6 @@ except KeyboardInterrupt:
     drone2.streamoff()
    
     sys.exit(1)
-        #drone1.end()
-        #drone2.end()
 
 except Exception as e:
     logging.error(f"An error occurred: {e}")
@@ -575,5 +535,4 @@ except Exception as e:
     drone2.land()
     drone1.streamoff()
     drone2.streamoff()
- 
-    sys.exit(1)  # Ensure the script exits
+    sys.exit(1)
