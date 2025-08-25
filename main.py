@@ -32,46 +32,68 @@ import PyGame_Interface
 ###############################################
 
 lock = threading.Lock()
-# define the IP addresses of the two Wi-Fi adapters
-WIFI_ADAPTER_1_IP = input("IP Adress of Adapter 1. type N/A for default")
-WIFI_ADAPTER_2_IP = input("IP Adress of Adapter 2. type N/A for default")
 
-if WIFI_ADAPTER_2_IP == "N/A":
-    WIFI_ADAPTER_2_IP = "192.168.10.3"  # IP address of Wi-Fi Adapter 2 (connected to Drone 2)
-if WIFI_ADAPTER_1_IP == "N/A":
-    WIFI_ADAPTER_1_IP = "192.168.10.2"  # IP address of Wi-Fi Adapter 1 (connected to Drone 1)    
+# define the IP addresses of the two Wi-Fi adapters and drone names
+ADAPTER_IPs = []
+x = ""
+adapter_idx = 1
+while x != "done":
+    x = input(f"IP Adress of Adapter {adapter_idx}. type done to stop adding IPs")
+    ADAPTER_IPs.append(x)
+x = ""
+drone_name_idx = 1
+DRONE_NAMES = []
+print("There should be the same number of drone names as there are adapter IPs, the drone name is the name of the wifi network from the Tello Drone.")
+while x != "done":
+    x = input(f"Type the name of drone {drone_name_idx}. type done to stop adding drone names")
+    DRONE_NAMES.append(x)
+print(f"Added {len(ADAPTER_IPs)} IP adresses, and {len(DRONE_NAMES)} drone names.")
 
-
-drone_ips = [WIFI_ADAPTER_1_IP, WIFI_ADAPTER_2_IP]
 base_port = 30000
 TELLO_IP = "192.168.10.1"
 
 # adapter names
-WIFI_1 = "Wi-Fi"
-WIFI_2 = "Wi-Fi 2"
+WIFI_NAMES = ["Wi-Fi " + str(i + 1) for i in range(len(ADAPTER_IPs))]
+DRONE_WIFIs = []
+DRONE_OBJs = []
+for idx, (adapter, (wifi_name, drone_name)) in enumerate(zip(ADAPTER_IPs, zip(WIFI_NAMES, DRONE_NAMES))):
+    DRONE_WIFIs.append(WifiBind(wifi_name, TELLO_IP, adapter))
+    DRONE_WIFIs[-1].connect_wifi(drone_name)
+    DRONE_WIFIs[-1].set_static_ip(adapter)
+    DRONE_WIFIs[-1].add_route(idx)
+    DRONE_OBJs.append(myTello(adapter, base_port + idx))
+    DRONE_OBJs[-1].connect()
+    
+##########################################################################
+##########################################################################
+##########################################################################
+#changed from:
+# WIFI_1 = "Wi-Fi"
+# WIFI_2 = "Wi-Fi 2"
+# 
+# drone_1_wifi = WifiBind(WIFI_1, TELLO_IP, WIFI_ADAPTER_1_IP)
+# drone_2_wifi = WifiBind(WIFI_2, TELLO_IP, WIFI_ADAPTER_2_IP)
+# 
+# # connect to Tello networks
+# drone_1_wifi.connect_wifi("TELLO-D06F9F")
+# drone_2_wifi.connect_wifi("TELLO-EE4263 2")
+# 
+# # assign static IPs
+# drone_1_wifi.set_static_ip(WIFI_ADAPTER_1_IP)
+# drone_2_wifi.set_static_ip(WIFI_ADAPTER_2_IP)
 
-drone_1_wifi = WifiBind(WIFI_1, TELLO_IP, WIFI_ADAPTER_1_IP)
-drone_2_wifi = WifiBind(WIFI_2, TELLO_IP, WIFI_ADAPTER_2_IP)
-
-# connect to Tello networks
-drone_1_wifi.connect_wifi("TELLO-D06F9F")
-drone_2_wifi.connect_wifi("TELLO-EE4263 2")
-
-# assign static IPs
-drone_1_wifi.set_static_ip(WIFI_ADAPTER_1_IP)
-drone_2_wifi.set_static_ip(WIFI_ADAPTER_2_IP)
-
-# add route if necessary
-drone_1_wifi.add_route(0)
-drone_2_wifi.add_route(1)
-
-
-drone1 = myTello(WIFI_ADAPTER_1_IP, base_port)
-drone2 = myTello(WIFI_ADAPTER_2_IP, base_port + 1)
-
-drone1.connect()
-drone2.connect()
-
+# # add route if necessary
+# drone_1_wifi.add_route(0)
+# drone_2_wifi.add_route(1)
+# 
+# drone1 = myTello(WIFI_ADAPTER_1_IP, base_port)
+# drone2 = myTello(WIFI_ADAPTER_2_IP, base_port + 1)
+# 
+# drone1.connect()
+# drone2.connect()
+##########################################################################
+##########################################################################
+##########################################################################
 
 def start_keep_alive(drone):
     keep_alive_thread = threading.Thread(target=drone.keep_alive, daemon=True)
