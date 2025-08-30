@@ -63,7 +63,13 @@ for idx, (adapter, (wifi_name, drone_name)) in enumerate(zip(ADAPTER_IPs, zip(WI
     DRONE_WIFIs[-1].add_route(idx)
     DRONE_OBJs.append(myTello(adapter, base_port + idx))
     DRONE_OBJs[-1].connect()
-    
+
+def start_keep_alive(drone):
+    keep_alive_thread = threading.Thread(target=drone.keep_alive, daemon=True)
+    keep_alive_thread.start()
+    return keep_alive_thread
+
+DRONE_ALIVE_THREADS = [start_keep_alive(drone_i) for drone_i in DRONE_OBJs]
 ##########################################################################
 ##########################################################################
 ##########################################################################
@@ -91,24 +97,22 @@ for idx, (adapter, (wifi_name, drone_name)) in enumerate(zip(ADAPTER_IPs, zip(WI
 # 
 # drone1.connect()
 # drone2.connect()
+
+# def start_keep_alive(drone):
+#     keep_alive_thread = threading.Thread(target=drone.keep_alive, daemon=True)
+#     keep_alive_thread.start()
+#     return keep_alive_thread
+# keep_alive_thread1 = start_keep_alive(drone1)
+# keep_alive_thread2 = start_keep_alive(drone2)
 ##########################################################################
 ##########################################################################
 ##########################################################################
 
-def start_keep_alive(drone):
-    keep_alive_thread = threading.Thread(target=drone.keep_alive, daemon=True)
-    keep_alive_thread.start()
-    return keep_alive_thread
-keep_alive_thread1 = start_keep_alive(drone1)
-keep_alive_thread2 = start_keep_alive(drone2)
-
-def is_safe_to_fly():
-    # check battery levels (both drones should have more than 20% battery)
-    battery1 = drone1.getBattery()
-    battery2 = drone2.getBattery()
-    if battery1 < 10 or battery2 < 10:
-        logging.warning(f"Low battery: Drone 1 ({battery1}%) or Drone 2 ({battery2}%)")
-        return False
+def is_safe_to_fly(BATTERIES):
+    for battery in BATTERIES:
+        if battery < 10:
+            return False
+    reeturn True
 
     # check if drones are connected
     if not drone1.getConnected() or not drone2.getConnected():
@@ -122,14 +126,26 @@ def is_safe_to_fly():
 ###############################################
 ###############################################
 
-battery1 = drone1.getBattery()
-battery2 = drone2.getBattery()
+BATTERIES = [drone.getBattery() for drone in DRONE_OBJs]
+HEIGHTS = [drone.getHeight() for drone in DRONE_OBJs]
+for idx, battery in enumerate(BATTERIES):
+    print(f"Drone {idx + 1} Battery: " + "Good" if battery > 10 else "TOO LOW")
 
-height1 = drone1.getHeight()
-height2 = drone2.getHeight()
+##########################################################################
+##########################################################################
+##########################################################################
+# changed from
+# battery1 = drone1.getBattery()
+# battery2 = drone2.getBattery()
 
-print(battery1)
-print(battery2)
+# height1 = drone1.getHeight()
+# height2 = drone2.getHeight()
+
+# print(battery1)
+# print(battery2)
+##########################################################################
+##########################################################################
+##########################################################################
 
 def updateScreen():
     PyGame_Interface.updateScreen()
@@ -141,17 +157,29 @@ screen_width, screen_height = pygame.display.get_surface().get_size()
 pygame.display.set_caption("Path Planning with Map (BRViz)")
 screen.fill((255, 255, 255))
 
-speedx1 = drone1.get_speed()
-speedx2 = drone2.get_speed()
-speedz1 = drone1.get_AngularSpeed(0)
-speedz2 = drone2.get_AngularSpeed(0)
-battery1 = drone1.getBattery()
-battery2 = drone2.getBattery()
-height1 = drone1.getHeight()
-height2 = drone2.getHeight()
+SPEED_Xs = [drone.get_speed() for drone in DRONE_OBJs]
+SPEED_Zs = [drone.get_AngularSpeed(0) for drone in DRONE_OBJs]
+
+##########################################################################
+##########################################################################
+##########################################################################
+# changed from
+# speedx1 = drone1.get_speed()
+# speedx2 = drone2.get_speed()
+# speedz1 = drone1.get_AngularSpeed(0)
+# speedz2 = drone2.get_AngularSpeed(0)
+# battery1 = drone1.getBattery()
+# battery2 = drone2.getBattery()
+# height1 = drone1.getHeight()
+# height2 = drone2.getHeight()
+##########################################################################
+##########################################################################
+##########################################################################
 
 isRunning = True
-sizeCoeff = 531.3/57 # actual distance/pixel distance in cm (CHANGE THIS VALUE IF YOUR CHANGING THE MAP)
+sizeCoeff = input("Please type in the actual distance per pixel value in centimeters. This will allow accurate movement of the drones. Google maps can be handy to determine this distance. Type N/A for default conversion value")
+if sizeCoeff.lower() == "N/A":
+    sizeCoeff = 531.3/57 # actual distance/pixel distance in cm (CHANGE THIS VALUE IF YOUR CHANGING THE MAP)
 
 def scaleImgDown(img, scale_factor):
     return PyGame_Interface.scaleImgDown(img, scale_factor)
@@ -189,7 +217,6 @@ pygame.display.update()
 personx, persony, personpospx = map2.addPerson(sizeCoeff)
 personpos = (personx, persony)
 
-print("HELLO")
 startMap.changeInstruction("Moving Drones...")
 startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
 
@@ -318,7 +345,7 @@ localizeThread = threading.Thread(target=updateInterface)
 localizeThread.start()
 screenThread = threading.Thread(target=updateScreen)
 screenThread.start()
-if(not is_safe_to_fly()):
+if(not is_safe_to_fly(BATTERIES)):
     logging.error("Safety check failed. Drones will not take off.")
     sys.exit(1)
 normal_height = 200
