@@ -363,6 +363,7 @@ try:
     #path
     start_1_X, start_1_Y, end_1_X, end_1_Y = path[0][0], path[0][1], path[1][0], path[1][1]
     path1 = [start_1_X, start_1_Y, end_1_X, end_1_Y]
+    DRONE_PATHS = [[start_1_X, start_1_Y, end_1_X, end_1_Y], [start_1_X, start_1_Y, end_1_X, end_1_Y], . . .] #l jlsakjdpfoiawjeociwaeposiiefjpo asif  FINSIH THIS ;laskdmacpowijefpoiajsoicjmpaowiejfpoiawjrpoicq3jtipohqpm9c3hmxpi3hmpaotij
 
     #other drone path
     path_2 = [path2[0][0],path2[0][1], path2[1][0], path2[1][1]]
@@ -372,14 +373,31 @@ try:
     drone_2_pos = [path_2[0], path_2[1], 0]
 
     #drone movement
-    drone_1_movement = [0, 0, 0] #(delta X, delta Y, delta angle)
-
+    
+    drone_movements = [[0, 0, 0] for drone in DRONE_OBJs]
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    # changed from
+    # drone_1_movement = [0, 0, 0] #(delta X, delta Y, delta angle)
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    
     #path planning and CV and collision objects
-    drone_1_path_plan = path_planner.PathPlan(path1[0], path1[2], path1[1], path1[3], drone_1_pos[2])
-    drone_2_path_plan = path_planner.PathPlan(path_2[0], path_2[2], path_2[1], path_2[3], drone_2_pos[2])
-    drone_1_CV = tello_tracking_2.CV()
-    drone_2_CV = tello_tracking_2.CV()
 
+    DRONE_PATH_PLAN_OBJs = [path_planner.PathPlan(DRONE_PATHS[i][0], DRONE_PATHS[i][2], DRONE_PATHS[i][1], DRONE_PATHS[i][3], 0) for i in range(len(DRONE_PATHS))]
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    # changed from
+    # drone_1_path_plan = path_planner.PathPlan(path1[0], path1[2], path1[1], path1[3], drone_1_pos[2])
+    # drone_2_path_plan = path_planner.PathPlan(path_2[0], path_2[2], path_2[1], path_2[3], drone_2_pos[2])
+    # drone_1_CV = tello_tracking_2.CV()
+    # drone_2_CV = tello_tracking_2.CV()
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
     drone_collision = avoid.Avoid(path1, path_2)
 
     #goal reached for drones?
