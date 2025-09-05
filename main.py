@@ -13,12 +13,23 @@ from localizeIRT import localizer
 import socket
 import os
 from customtello import myTello
+################################################################
+################################################################
+################################################################
+# changes
+import helper_algorithms/collision_avoidance as avoid
+import helper_algorithms/drone_movement_recalculation as path_planner
+import helper_algorithms/subject_tracking as tello_tracking_2
+################################################################
+################################################################
+################################################################
 import path_planner
 import tello_tracking_2
 import collision
 import logging
 import platform
 import subprocess
+import 
 import avoid
 import re
 from wifi_bind import WifiBind
@@ -360,20 +371,25 @@ try:
     drone1.takeoff()
     drone2.takeoff()
 
-    #path
-    start_1_X, start_1_Y, end_1_X, end_1_Y = path[0][0], path[0][1], path[1][0], path[1][1]
-    path1 = [start_1_X, start_1_Y, end_1_X, end_1_Y]
+    #paths and positions
     DRONE_PATHS = [[start_1_X, start_1_Y, end_1_X, end_1_Y], [start_1_X, start_1_Y, end_1_X, end_1_Y], . . .] #l jlsakjdpfoiawjeociwaeposiiefjpo asif  FINSIH THIS ;laskdmacpowijefpoiajsoicjmpaowiejfpoiawjrpoicq3jtipohqpm9c3hmxpi3hmpaotij
-
-    #other drone path
-    path_2 = [path2[0][0],path2[0][1], path2[1][0], path2[1][1]]
-
-    #drone current values
-    drone_1_pos = [path1[0], path1[1], 0] #(X, Y, angle), STARTING ANGLE MUST BE 0 DEGREES
-    drone_2_pos = [path_2[0], path_2[1], 0]
-
-    #drone movement
+    DRONE_POSITIONS = [[x, y, theta], [x, y, theta], . . . ]
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    # changed from
+    # start_1_X, start_1_Y, end_1_X, end_1_Y = path[0][0], path[0][1], path[1][0], path[1][1]
+    # path1 = [start_1_X, start_1_Y, end_1_X, end_1_Y]
+    # #other drone path
+    # path_2 = [path2[0][0],path2[0][1], path2[1][0], path2[1][1]]
+    # #drone current values
+    # drone_1_pos = [path1[0], path1[1], 0] #(X, Y, angle), STARTING ANGLE MUST BE 0 DEGREES
+    # drone_2_pos = [path_2[0], path_2[1], 0]
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
     
+    #drone movements
     drone_movements = [[0, 0, 0] for drone in DRONE_OBJs]
     ##########################################################################
     ##########################################################################
@@ -385,8 +401,8 @@ try:
     ##########################################################################
     
     #path planning and CV and collision objects
-
     DRONE_PATH_PLAN_OBJs = [path_planner.PathPlan(DRONE_PATHS[i][0], DRONE_PATHS[i][2], DRONE_PATHS[i][1], DRONE_PATHS[i][3], 0) for i in range(len(DRONE_PATHS))]
+    DRONE_COLLISION_OBJ = 
     ##########################################################################
     ##########################################################################
     ##########################################################################
@@ -395,30 +411,50 @@ try:
     # drone_2_path_plan = path_planner.PathPlan(path_2[0], path_2[2], path_2[1], path_2[3], drone_2_pos[2])
     # drone_1_CV = tello_tracking_2.CV()
     # drone_2_CV = tello_tracking_2.CV()
+    # drone_collision = avoid.Avoid(path1, path_2)
     ##########################################################################
     ##########################################################################
     ##########################################################################
-    drone_collision = avoid.Avoid(path1, path_2)
-
-    #goal reached for drones?
-    drone_1_terminate = False
-    drone_2_terminate = False
+    
+    #goal reached for drones?  
+    TERMINATE = [False for drone in DRONE_OBJs]
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    # drone_1_terminate = False
+    # drone_2_terminate = False
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
 
     #turn on drone
-    drone1.send_rc(0, 0, 40, 0)
-    drone2.send_rc(0, 0, 40, 0)
-    time.sleep(1.5)
-    drone_height = 60
-    normal_height = 60
+    drone_rise_velocity = input("Please input the velocity you want the drone to go up to, the drone will rise for 1 second at that velocity. Keep under 50 for safety purposes.")
+    for drone in DRONE_OBJs:
+        drone.send_rc(0, 0, drone_rise_velocity, 0)
+        time.sleep(1)
+        drone.send_rc(0, 0, 0, 0)
+    drone_height = drone_rise_velocity
     go_up = 0
-    drone1.send_rc(0, 0, 0, 0)
-    drone2.send_rc(0, 0, 0, 0)
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    # changed
+    # drone1.send_rc(0, 0, 40, 0)
+    # drone2.send_rc(0, 0, 40, 0)
+    # time.sleep(1.5)
+    # drone_height = 60
+    # normal_height = 60
+    # go_up = 0
+    # drone1.send_rc(0, 0, 0, 0)
+    # drone2.send_rc(0, 0, 0, 0)
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
 
     #timer for position updates
     sleep_time = 0
     timer = 0
     iter = 0
-    iter_2 = 0
 
     #total time elapsed
     total_time = 0
@@ -426,8 +462,21 @@ try:
     ###############################
     #---Make drone face subject---#
     ###############################
-    facing_human_1 = False
-    facing_human_2 = False
+
+    drone_facing_human = [False for drone in DRONE_OBJs]
+    for idx, drone in enumerate(DRONE_OBJs):
+        print(f"Rotating drone {idx}")
+        while (not drone_facing_human[idx]):
+            img = drone.get_frame_read()
+            if (img is not None):
+                logging.debug(f"Processed frame for drone {idx}")
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    # changed from
+    # facing_human_1 = False
+    # facing_human_2 = False
+
     while (not facing_human_1) or (not facing_human_2):
         #CV
         img1 = drone1.get_frame_read()
@@ -455,7 +504,9 @@ try:
             drone2.send_rc(0, 0, 0, turn_2)
         else:
             logging.debug("No frame recieved for drones")
-            
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################            
        
         
 
