@@ -1,7 +1,7 @@
 import pygame
 import json
 import math
-import cv2 
+import cv2
 import time
 from time import sleep
 import numpy as np
@@ -17,11 +17,7 @@ from helper_algorithms import collision_avoidance as avoid
 from helper_algorithms import drone_movement_recalculation as path_planner
 from helper_algorithms import subject_tracking as tello_tracking_2
 import logging
-import platform
-import subprocess
-import re
 from wifi_bind import WifiBind
-from interface import DroneInterface
 import PyGame_Interface
 
 lock = threading.Lock()
@@ -30,37 +26,28 @@ ADAPTER_IPs = []
 adapter_idx = 1
 while True:
     x = input(f"IP Adress of Adapter {adapter_idx}. type done to stop adding IPs")
-    if x is None:
-        break
-    if x.lower() == "done":
+    if x is None or x.lower() == "done":
         break
     ADAPTER_IPs.append(x)
     adapter_idx += 1
 
 drone_name_idx = 1
 DRONE_NAMES = []
-print("There should be the same number of drone names as there are adapter IPs, the drone name is the name of the wifi network from the Tello Drone.")
 while True:
     x = input(f"Type the name of drone {drone_name_idx}. type done to stop adding drone names")
-    if x is None:
-        break
-    if x.lower() == "done":
+    if x is None or x.lower() == "done":
         break
     DRONE_NAMES.append(x)
     drone_name_idx += 1
 
-if len(ADAPTER_IPs) != len(DRONE_NAMES):
-    print("Warning: number of adapters and drone names differ. Using min length.")
 n_drones = min(len(ADAPTER_IPs), len(DRONE_NAMES))
 ADAPTER_IPs = ADAPTER_IPs[:n_drones]
 DRONE_NAMES = DRONE_NAMES[:n_drones]
 
-print(f"Added {len(ADAPTER_IPs)} IP adresses, and {len(DRONE_NAMES)} drone names.")
-
 base_port = 30000
 TELLO_IP = "192.168.10.1"
-
 WIFI_NAMES = ["Wi-Fi " + str(i + 1) for i in range(len(ADAPTER_IPs))]
+
 DRONE_WIFIs = []
 DRONE_OBJs = []
 for idx, (adapter, wifi_name, drone_name) in enumerate(zip(ADAPTER_IPs, WIFI_NAMES, DRONE_NAMES)):
@@ -74,11 +61,11 @@ for idx, (adapter, wifi_name, drone_name) in enumerate(zip(ADAPTER_IPs, WIFI_NAM
     drone_obj.connect()
 
 def start_keep_alive(drone):
-    keep_alive_thread = threading.Thread(target=drone.keep_alive, daemon=True)
-    keep_alive_thread.start()
-    return keep_alive_thread
+    t = threading.Thread(target=drone.keep_alive, daemon=True)
+    t.start()
+    return t
 
-DRONE_ALIVE_THREADS = [start_keep_alive(drone_i) for drone_i in DRONE_OBJs]
+DRONE_ALIVE_THREADS = [start_keep_alive(d) for d in DRONE_OBJs]
 
 def is_safe_to_fly(BATTERIES, DRONES):
     for battery in BATTERIES:
@@ -87,28 +74,20 @@ def is_safe_to_fly(BATTERIES, DRONES):
     for d in DRONES:
         try:
             if not d.getConnected():
-                logging.error("One or more drones are not connected")
+                logging.error("Drone not connected")
                 return False
         except Exception:
-            logging.error("Failed to verify drone connection")
+            logging.error("Failed to verify connection")
             return False
     return True
 
 BATTERIES = [None for _ in DRONE_OBJs]
 HEIGHTS = [None for _ in DRONE_OBJs]
 for idx, drone in enumerate(DRONE_OBJs):
-    try:
-        BATTERIES[idx] = drone.getBattery()
-    except Exception:
-        BATTERIES[idx] = None
-    try:
-        HEIGHTS[idx] = drone.getHeight()
-    except Exception:
-        HEIGHTS[idx] = None
-
-for idx, battery in enumerate(BATTERIES):
-    status = "Good" if battery is not None and battery > 10 else "TOO LOW"
-    print(f"Drone {idx + 1} Battery: {status}")
+    try: BATTERIES[idx] = drone.getBattery()
+    except Exception: BATTERIES[idx] = None
+    try: HEIGHTS[idx] = drone.getHeight()
+    except Exception: HEIGHTS[idx] = None
 
 pygame.init()
 screen = pygame.display.set_mode([864, 586])
@@ -118,28 +97,17 @@ screen.fill((255, 255, 255))
 
 SPEED_Xs = []
 SPEED_Zs = []
-for idx, drone in enumerate(DRONE_OBJs):
-    try:
-        SPEED_Xs.append(drone.get_speed())
-    except Exception:
-        SPEED_Xs.append(0)
-    try:
-        SPEED_Zs.append(drone.get_AngularSpeed(0))
-    except Exception:
-        SPEED_Zs.append(0)
+for drone in DRONE_OBJs:
+    try: SPEED_Xs.append(drone.get_speed())
+    except Exception: SPEED_Xs.append(0)
+    try: SPEED_Zs.append(drone.get_AngularSpeed(0))
+    except Exception: SPEED_Zs.append(0)
 
-isRunning = True
-sizeCoeff = input("Please type in the actual distance per pixel value in centimeters. This will allow accurate movement of the drones. Google maps can be handy to determine this distance. Type N/A for default conversion value")
-if sizeCoeff is None or sizeCoeff == "":
+sizeCoeff = input("Distance per pixel in cm (N/A for default)")
+try:
+    sizeCoeff = float(sizeCoeff) if sizeCoeff.lower() != "n/a" else 531.3/57
+except Exception:
     sizeCoeff = 531.3/57
-else:
-    try:
-        if sizeCoeff.lower() == "n/a":
-            sizeCoeff = 531.3/57
-        else:
-            sizeCoeff = float(sizeCoeff)
-    except Exception:
-        sizeCoeff = 531.3/57
 
 def scaleImgDown(img, scale_factor):
     return PyGame_Interface.scaleImgDown(img, scale_factor)
@@ -160,8 +128,8 @@ paths = []
 angles = []
 distancesInCm = []
 distancesInPx = []
-
 background_image = 'images/mymap.png'
+
 for drone_idx in range(n_drones):
     startMap.changeInstruction(f"Make Drone {drone_idx+1} Path")
     startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
@@ -170,9 +138,9 @@ for drone_idx in range(n_drones):
     if len(path) >= 2:
         start_pt = path[0]
         end_pt = path[-1]
-        pygame.draw.line(screen, (0, 0, 0), start_pt, end_pt, 6)
-        pygame.draw.circle(screen, (0, 0, 255), start_pt, 5)
-        pygame.draw.circle(screen, (0, 0, 255), end_pt, 5)
+        pygame.draw.line(screen, (0,0,0), start_pt, end_pt, 6)
+        pygame.draw.circle(screen, (0,0,255), start_pt, 5)
+        pygame.draw.circle(screen, (0,0,255), end_pt, 5)
     saveImg = pygame.Rect(0, 105, screen_width, screen_height-105)
     pathimg = screen.subsurface(saveImg).copy()
     out_name = f"images/pathPlanned_{drone_idx}.png"
@@ -185,24 +153,23 @@ for drone_idx in range(n_drones):
 
 startMap.changeInstruction("Add the Subject")
 startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
-
 personx, persony, personpospx = m.addPerson(sizeCoeff)
 personpos = (personx, persony)
 
 if not is_safe_to_fly(BATTERIES, DRONE_OBJs):
-    logging.error("Safety check failed. Drones will not take off.")
+    logging.error("Safety check failed")
     sys.exit(1)
 
 try:
     for idx, d in enumerate(DRONE_OBJs):
         d.streamon()
-        d.start_video_stream(idx + 1)
+        d.start_video_stream(idx+1)
         d.takeoff()
 
     DRONE_PATH_PLAN_OBJs = []
     for i, path in enumerate(paths):
         if len(path) < 2:
-            logging.error(f"Path for drone {i+1} is too short.")
+            logging.error(f"Path for drone {i+1} too short")
             sys.exit(1)
         s, e = path[0], path[-1]
         DRONE_PATH_PLAN_OBJs.append(path_planner.PathPlan(s[0], e[0], s[1], e[1], 0))
@@ -210,19 +177,14 @@ try:
     CV_objs = [tello_tracking_2.CV() for _ in DRONE_OBJs]
     avoider = avoid.Avoid(detect_collision_distance=200, height_change=50)
 
-    drone_positions = {i+1: [p[0][0], p[0][1]] for i, p in enumerate(paths)}
-    drone_heights = {i+1: 200 for i in range(n_drones)}
-    terminate_flags = [False] * n_drones
+    drone_positions = {i+1:[p[0][0],p[0][1]] for i,p in enumerate(paths)}
+    drone_heights = {i+1:200 for i in range(n_drones)}
+    terminate_flags = [False]*n_drones
 
-    start_time = time.time()
-    total_time = 0
-
-    while total_time < 60:
-        total_time = time.time() - start_time
-
+    while not all(terminate_flags):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                total_time = 61
+                terminate_flags = [True]*n_drones
                 break
 
         frames = []
@@ -239,8 +201,7 @@ try:
             turn = 0
             if frame is not None:
                 turn = CV_objs[i].center_subject(frame, i+1)
-                if turn == 1:
-                    turn = 0
+                if turn == 1: turn = 0
             turns.append(turn)
 
         for i, drone in enumerate(DRONE_OBJs):
@@ -248,13 +209,14 @@ try:
                 continue
 
             x, y = drone_positions[i+1]
-            yaw = -1 * drone.get_yaw()
-            vel = DRONE_PATH_PLAN_OBJs[i].move_towards_goal(x, y, yaw, terminate_flags[i])
-
-            if vel == [0, 0]:
+            goal = paths[i][-1]
+            if math.dist([x,y], goal) < 20:
                 terminate_flags[i] = True
-                drone.send_rc(0, 0, 0, 0)
+                drone.send_rc(0,0,0,0)
                 continue
+
+            yaw = -1*drone.get_yaw()
+            vel = DRONE_PATH_PLAN_OBJs[i].move_towards_goal(x, y, yaw, terminate_flags[i])
 
             collisions = avoider.detect_collisions(drone_positions)
             height_adjustments = avoider.assign_heights(collisions)
@@ -262,14 +224,14 @@ try:
 
             try:
                 drone.send_rc(vel[0], vel[1], z_vel, turns[i])
-                drone_positions[i+1][0] += vel[0] * 0.1
-                drone_positions[i+1][1] += vel[1] * 0.1
-                drone_heights[i+1] += z_vel * 0.1
+                drone_positions[i+1][0] += vel[0]*0.1
+                drone_positions[i+1][1] += vel[1]*0.1
+                drone_heights[i+1] += z_vel*0.1
             except Exception:
                 pass
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            terminate_flags = [True]*n_drones
 
         pygame.display.flip()
 
@@ -279,3 +241,16 @@ try:
         d.land()
         d.streamoff()
     sys.exit(0)
+
+except KeyboardInterrupt:
+    for d in DRONE_OBJs:
+        d.land()
+        d.streamoff()
+    sys.exit(1)
+
+except Exception as e:
+    logging.error(f"Error: {e}")
+    for d in DRONE_OBJs:
+        d.land()
+        d.streamoff()
+    sys.exit(1)
