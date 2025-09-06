@@ -217,90 +217,57 @@ class initializeMap:
         pygame.display.update(rect)
         self.instruction = instruction
 
-    def start_screen(self, batterylvl1, speedx1, speedz1, altitude1, batterylvl2, speedx2, speedz2, altitude2):
-        #Initializes the screen for mapping
-        screen_width, screen_height = pygame.display.get_surface().get_size()
-        pygame.draw.line(self.screen, (0, 0, 0), (0, 100), (screen_width, 100), 20)
-
-        instructionfont = pygame.font.SysFont('Comic Sans', 40)
-        instructtext = instructionfont.render(self.instruction, True , (0, 0, 10)) 
-        self.screen.blit(instructtext, ((screen_width/2)-(instructtext.get_width()/2), 25)) #Gives instructions based on what is going on
-
-        tello1logo = pygame.image.load("images/tello1logo.png")  
-        tello1logo = self.scaleImgDown(tello1logo, 0.09)
-        self.screen.blit(tello1logo, (0, 0))  
-
-        batterylow = pygame.image.load("batteries/onebar.png") 
-        batterylow = self.scaleImgDown(batterylow, 0.075)
-        batterymedium = pygame.image.load("batteries/twobar.png") 
-        batterymedium = self.scaleImgDown(batterymedium, 0.075)
-        batteryhigh = pygame.image.load("batteries/threebar.png")
-        batteryhigh = self.scaleImgDown(batteryhigh, 0.075)
-        batterydead = pygame.image.load("batteries/dead.png") 
-        batterydead = self.scaleImgDown(batterydead, 0.075)
-        batteryfull = pygame.image.load("batteries/full.png") 
-        batteryfull = self.scaleImgDown(batteryfull, 0.075)
-
-        percent = str(batterylvl1) + "%"
-        batteryfont = pygame.font.SysFont('Comic Sans', 12)
-        batterytext = batteryfont.render(percent, True , (0, 0, 10)) 
-        self.screen.blit(batterytext, (70, 18))
-
-        xSpeedText = "Linear Speed:" + str(speedx1) + " cm/s"
-        speedFont = pygame.font.SysFont('Comic Sans', 10)
-        xSpeedText = speedFont.render(xSpeedText, True , (0, 0, 10)) 
-        self.screen.blit(xSpeedText, (75, 34))
-
-        zSpeedText = "Angular Speed:" + str(speedz1) + " deg/s"
-        zSpeedText = speedFont.render(zSpeedText, True , (0, 0, 10)) 
-        self.screen.blit(zSpeedText, (75, 50))
-
-        altitudeText = "Height: " + str(altitude1) + " cm"
-        altitudeText = speedFont.render(altitudeText, True , (0, 0, 10)) 
-        self.screen.blit(altitudeText, (70, 66))
-        
-        if batterylvl1 is not None:
-            if(batterylvl1 <= 5):
-                self.screen.blit(batterydead, (80, 0))  
-            elif(batterylvl1 <= 25):
-                self.screen.blit(batterylow, (80, 0))  
-            elif(batterylvl1<50):
-                self.screen.blit(batterymedium, (80, 0))  
-            elif(batterylvl1<80):
-                self.screen.blit(batteryhigh, (80, 0))  
-            else:
-                self.screen.blit(batteryfull, (80, 0))  
-
-        #SECOND DRONE
-        tello2logo = pygame.image.load("images/tello2logo.png")  # Replace with the path to your image file
-        tello2logo = self.scaleImgDown(tello2logo, 0.09)
-        self.screen.blit(tello2logo, (screen_width-tello1logo.get_width(), 0)) 
-
-        percent2 = str(batterylvl2) + "%"
-        batterytext2 = batteryfont.render(percent2, True , (0, 0, 10)) 
-        self.screen.blit(batterytext2, (screen_width-120, 18))
-
-        xSpeedText2 = "Linear Speed:" + str(speedx2) + " cm/s"
-        speedFont = pygame.font.SysFont('Comic Sans', 10)
-        xSpeedText2 = speedFont.render(xSpeedText2, True , (0, 0, 10)) 
-        self.screen.blit(xSpeedText2, (screen_width-178, 34))
-
-        zSpeedText2 = "Angular Speed:" + str(speedz2) + " deg/s"
-        zSpeedText2 = speedFont.render(zSpeedText2, True , (0, 0, 10)) 
-        self.screen.blit(zSpeedText2, (screen_width-178, 50))
-
-        altitudeText2 = "Height: " + str(altitude2) + " cm"
-        altitudeText2 = speedFont.render(altitudeText2, True , (0, 0, 10)) 
-        self.screen.blit(altitudeText2, (screen_width-145, 66))
-
-        if batterylvl2 is not None:
-            if(batterylvl2 <= 5):
-                self.screen.blit(batterydead, (screen_width-110, 0))  
-            elif(batterylvl2 <= 25):
-                self.screen.blit(batterylow, (screen_width-110, 0))  
-            elif(batterylvl2<50):
-                self.screen.blit(batterymedium, (screen_width-110, 0))  
-            elif(batterylvl2<80):
-                self.screen.blit(batteryhigh, (screen_width-110, 0))  
-            else:
-                self.screen.blit(batteryfull, (screen_width-110, 0))  
+        def start_screen(self, batteries, speedxs, speedzs, heights):
+            screen_width, screen_height = pygame.display.get_surface().get_size()
+            pygame.draw.line(self.screen, (0, 0, 0), (0, 100), (screen_width, 100), 20)
+            instructionfont = pygame.font.SysFont('Comic Sans', 40)
+            instructtext = instructionfont.render(self.instruction, True, (0, 0, 10))
+            self.screen.blit(
+                instructtext,
+                ((screen_width / 2) - (instructtext.get_width() / 2), 25)
+            )
+            logos = [
+                pygame.image.load("images/tello1logo.png"),
+                pygame.image.load("images/tello2logo.png"),
+            ]
+            for i in range(len(logos)):
+                logos[i] = self.scaleImgDown(logos[i], 0.09)
+            battery_icons = {
+                "dead":  self.scaleImgDown(pygame.image.load("batteries/dead.png"), 0.075),
+                "low":   self.scaleImgDown(pygame.image.load("batteries/onebar.png"), 0.075),
+                "med":   self.scaleImgDown(pygame.image.load("batteries/twobar.png"), 0.075),
+                "high":  self.scaleImgDown(pygame.image.load("batteries/threebar.png"), 0.075),
+                "full":  self.scaleImgDown(pygame.image.load("batteries/full.png"), 0.075),
+            }
+            batteryfont = pygame.font.SysFont('Comic Sans', 12)
+            speedFont = pygame.font.SysFont('Comic Sans', 10)
+            margin = 150
+            padding_x = 20
+            for idx, (bat, sx, sz, h) in enumerate(zip(batteries, speedxs, speedzs, heights)):
+                # Pick position
+                x = padding_x + idx * margin
+                y = 0
+                logo = logos[idx % len(logos)]
+                self.screen.blit(logo, (x, y))
+                percent_text = f"{bat}%"
+                batterytext = batteryfont.render(percent_text, True, (0, 0, 10))
+                self.screen.blit(batterytext, (x + 70, 18))
+                xSpeedText = f"Linear Speed: {sx} cm/s"
+                self.screen.blit(speedFont.render(xSpeedText, True, (0, 0, 10)), (x + 75, 34))
+                zSpeedText = f"Angular Speed: {sz} deg/s"
+                self.screen.blit(speedFont.render(zSpeedText, True, (0, 0, 10)), (x + 75, 50))
+                altitudeText = f"Height: {h} cm"
+                self.screen.blit(speedFont.render(altitudeText, True, (0, 0, 10)), (x + 70, 66))
+                if bat is not None:
+                    if bat <= 5:
+                        icon = battery_icons["dead"]
+                    elif bat <= 25:
+                        icon = battery_icons["low"]
+                    elif bat < 50:
+                        icon = battery_icons["med"]
+                    elif bat < 80:
+                        icon = battery_icons["high"]
+                    else:
+                        icon = battery_icons["full"]
+                    self.screen.blit(icon, (x + 80, 0))
+            pygame.display.update()
