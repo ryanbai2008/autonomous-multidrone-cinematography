@@ -13,12 +13,9 @@ from localizeIRT import localizer
 import socket
 import os
 from customtello import myTello
-################################################################
-# helper modules
 from helper_algorithms import collision_avoidance as avoid
 from helper_algorithms import drone_movement_recalculation as path_planner
 from helper_algorithms import subject_tracking as tello_tracking_2
-################################################################
 import logging
 import platform
 import subprocess
@@ -26,10 +23,6 @@ import re
 from wifi_bind import WifiBind
 from interface import DroneInterface
 import PyGame_Interface
-
-###############################################
-#---------------Connect to drones-------------#
-###############################################
 
 lock = threading.Lock()
 
@@ -87,10 +80,6 @@ def start_keep_alive(drone):
 
 DRONE_ALIVE_THREADS = [start_keep_alive(drone_i) for drone_i in DRONE_OBJs]
 
-##########################################################################
-# Safety Check
-##########################################################################
-
 def is_safe_to_fly(BATTERIES, DRONES):
     for battery in BATTERIES:
         if battery is None or battery < 10:
@@ -104,10 +93,6 @@ def is_safe_to_fly(BATTERIES, DRONES):
             logging.error("Failed to verify drone connection")
             return False
     return True
-
-###############################################
-#-------------------Display-------------------#
-###############################################
 
 BATTERIES = [None for _ in DRONE_OBJs]
 HEIGHTS = [None for _ in DRONE_OBJs]
@@ -182,9 +167,12 @@ for drone_idx in range(n_drones):
     startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, speedz2, height2)
     m = map.mapStart(sizeCoeff, screen, Background(background_image, [0, 105], 0.7))
     angle, distanceInCm, distanceInPx, path = m.createMap()
-    pygame.draw.line(screen, (0, 0, 0), path[1], path[2], 6)
-    pygame.draw.circle(screen, (0, 0, 255), path[1], 5)
-    pygame.draw.circle(screen, (0, 0, 255), path[2], 5)
+    if len(path) >= 2:
+        start_pt = path[0]
+        end_pt = path[-1]
+        pygame.draw.line(screen, (0, 0, 0), start_pt, end_pt, 6)
+        pygame.draw.circle(screen, (0, 0, 255), start_pt, 5)
+        pygame.draw.circle(screen, (0, 0, 255), end_pt, 5)
     saveImg = pygame.Rect(0, 105, screen_width, screen_height-105)
     pathimg = screen.subsurface(saveImg).copy()
     out_name = f"images/pathPlanned_{drone_idx}.png"
@@ -201,10 +189,6 @@ startMap.start_screen(battery1, speedx1, speedz1, height1, battery2, speedx2, sp
 personx, persony, personpospx = m.addPerson(sizeCoeff)
 personpos = (personx, persony)
 
-###############################################
-#-------------- Begin Mission ----------------#
-###############################################
-
 if not is_safe_to_fly(BATTERIES, DRONE_OBJs):
     logging.error("Safety check failed. Drones will not take off.")
     sys.exit(1)
@@ -215,18 +199,17 @@ try:
         d.start_video_stream(idx + 1)
         d.takeoff()
 
-    # Initialize planners & trackers
     DRONE_PATH_PLAN_OBJs = []
     for i, path in enumerate(paths):
-        s, e = path[0], path[1]
+        if len(path) < 2:
+            logging.error(f"Path for drone {i+1} is too short.")
+            sys.exit(1)
+        s, e = path[0], path[-1]
         DRONE_PATH_PLAN_OBJs.append(path_planner.PathPlan(s[0], e[0], s[1], e[1], 0))
 
     CV_objs = [tello_tracking_2.CV() for _ in DRONE_OBJs]
-
-    # Collision avoidance
     avoider = avoid.Avoid(detect_collision_distance=200, height_change=50)
 
-    # Drone states
     drone_positions = {i+1: [p[0][0], p[0][1]] for i, p in enumerate(paths)}
     drone_heights = {i+1: 200 for i in range(n_drones)}
     terminate_flags = [False] * n_drones
@@ -245,7 +228,9 @@ try:
         frames = []
         for d in DRONE_OBJs:
             try:
-                frames.append(d.get_frame_read())
+                frame_obj = d.get_frame_read()
+                frame = frame_obj.frame if hasattr(frame_obj, "frame") else frame_obj
+                frames.append(frame)
             except Exception:
                 frames.append(None)
 
@@ -286,22 +271,11 @@ try:
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
+        pygame.display.flip()
+
     time.sleep(5)
     cv2.destroyAllWindows()
     for d in DRONE_OBJs:
         d.land()
         d.streamoff()
-
-except KeyboardInterrupt:
-    logging.info("KeyboardInterrupt received. Landing the drones...")
-    for d in DRONE_OBJs:
-        d.land()
-        d.streamoff()
-    sys.exit(1)
-
-except Exception as e:
-    logging.error(f"An error occurred: {e}")
-    for d in DRONE_OBJs:
-        d.land()
-        d.streamoff()
-    sys.exit(1)
+    sys.exit(0)
