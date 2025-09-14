@@ -12,7 +12,7 @@ import map
 from localizeIRT import localizer
 import socket
 import os
-from customtello import myTello
+from helper_algorithms import customtello.myTello
 from helper_algorithms import collision_avoidance as avoid
 from helper_algorithms import drone_movement_recalculation as path_planner
 from helper_algorithms import subject_tracking as tello_tracking_2
