@@ -14,17 +14,15 @@ import socket
 import os
 #from customtello import VideoProxyServer
 from customtello import myTello
-
-import path_planner
-import tello_tracking_2
-import collision
+from helper_algorithms import collision_avoidance as avoid
+from helper_algorithms import drone_movement_recalculation as path_planner
+from helper_algorithms import subject_tracking as tello_tracking_2 
 import logging
 import platform
 import subprocess
-import avoid
 import re
 from wifi_bind import WifiBind
-from interface import DroneInterface
+import helper_algorithms.PyGame_Interface as DroneInterface
 
 lock = threading.Lock()
 # Define the IP addresses of the two Wi-Fi adapters
@@ -155,27 +153,6 @@ def line_intersection(x1, y1, x2, y2, x3, y3, x4, y4):
     else:
         return None
     
-intersection = line_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
-
-if intersection:
-    font = pygame.font.SysFont('Times',25)
-    intersectx = (int)((intersection[0]))
-    intersecty = (int)((screen_height  - intersection[1]))
-    position_text = font.render(f'({intersectx}, {intersecty})cm', True, (128, 0, 128))
-    screen.blit(position_text, intersection)
-    pygame.draw.circle(screen, (128, 0, 128), intersection, 6) #purple dot at intesection 
-    intersection = (intersectx, intersecty)
-    collisiondetect = collision(path2[0], intersection, 500, 500)
-    collisiondetect.get_vertex() 
-    intersection = True
-print(intersection)
-print(personpos)
-
-
-def move_parabolic(self, drone, speed, time, distance):
-    drone2.send_rc(0, 0, 0, int(speed))
-    drone.send_rc(0, 0, 0, int(speed))
-
 #Saves the screen to be blitted
 saveImg = pygame.Rect(0, 100, screen_width, screen_height-105)
 # Create a new Surface to store the part of the screen

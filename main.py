@@ -18,7 +18,7 @@ from helper_algorithms import drone_movement_recalculation as path_planner
 from helper_algorithms import subject_tracking as tello_tracking_2
 import logging
 from wifi_bind import WifiBind
-import PyGame_Interface
+import helper_algorithms.PyGame_Interface as PyGame_Interface
 
 lock = threading.Lock()
 
