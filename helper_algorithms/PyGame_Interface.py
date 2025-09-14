@@ -15,9 +15,9 @@ import os
 #from customtello import VideoProxyServer
 from customtello import myTello
 
-import path_planner
+import helper_algorithms.drone_movement_recalculation as path_planner
 import tello_tracking_2
-import collision
+from helper_algorithms import collision_avoidance
 import logging
 import platform
 import subprocess
@@ -115,7 +115,7 @@ class DroneInterface:
                     self.rotating = False
         else:
             self.yaw = self.map.get_angle(self.dronecurrent_pos, self.personpospx, (self.dronecurrent_pos[0], self.dronecurrent_pos[1]+10))
-            if self.step <= self.dronenum_steps:
+            if self.step < self.dronenum_steps:
                 self.dronecurrent_pos[0] += self.dx
                 self.dronecurrent_pos[1] += self.dy
                 self.dronepoints.append(tuple(self.dronecurrent_pos))
